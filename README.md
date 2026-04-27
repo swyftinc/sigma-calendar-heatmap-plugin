@@ -2,7 +2,9 @@
 
 A calendar heatmap plugin for [Sigma Computing](https://sigmacomputing.com) that displays daily aggregated metrics with intensity-based color coding — the darker the cell, the higher the value.
 
-**Live URL:** `https://twells89.github.io/sigma-calendar-heatmap-plugin/`
+**Live URL:** `https://swyftinc.github.io/sigma-calendar-heatmap-plugin/`
+
+**Upstream:** Forked from [twells89/sigma-calendar-heatmap-plugin](https://github.com/twells89/sigma-calendar-heatmap-plugin) — original author: TJ Wells (Sigma).
 
 ---
 
@@ -123,7 +125,7 @@ Days with no data show a neutral light background with no value label.
 ## Local Development
 
 ```bash
-git clone https://github.com/twells89/sigma-calendar-heatmap-plugin.git
+git clone https://github.com/swyftinc/sigma-calendar-heatmap-plugin.git
 cd sigma-calendar-heatmap-plugin
 npm install
 npm run dev
