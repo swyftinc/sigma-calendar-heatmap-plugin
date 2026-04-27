@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef } from 'react'
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useConfig, useElementData, usePlugin } from '@sigmacomputing/plugin'
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -12,6 +12,7 @@ const DOW_SUN = ['S','M','T','W','T','F','S']
 const DOW_MON = ['M','T','W','T','F','S','S']
 
 const THEMES = {
+  Swyft:  { low: '#E5E4FE', high: '#261FF6' },
   Red:    { low: '#FDDEDE', high: '#8B2222' },
   Blue:   { low: '#D6EAFF', high: '#1B4F8B' },
   Green:  { low: '#D6F5E3', high: '#1A6B3A' },
@@ -26,7 +27,7 @@ function parseDateKey(val) {
   if (val == null || val === '') return null
   if (typeof val === 'string') {
     const str = val.trim()
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str  // date-only ISO: return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
     if (/^\d{13}$/.test(str)) return utcKey(new Date(parseInt(str, 10)))
     if (/^\d{10}$/.test(str)) return utcKey(new Date(parseInt(str, 10) * 1000))
     const d = new Date(str)
@@ -42,12 +43,10 @@ function parseDateKey(val) {
   return null
 }
 
-// Sigma stores dates as UTC midnight — always extract UTC components
 function utcKey(d) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
 }
 
-// Key from a calendar-grid Date (local time, built via new Date(year, month, day))
 function cellKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
@@ -118,12 +117,14 @@ export default function App() {
   const dateCol    = config?.dateColumn
   const valueCol   = config?.valueColumn
   const detailCol  = config?.detailColumn
+  const filterCol  = config?.filterColumn
   const aggMethod  = config?.aggregation  || 'Sum'
   const title      = config?.title        || 'Calendar'
   const subtitle   = config?.subtitle     || ''
   const totalLabel = config?.totalLabel   || title
   const showTotal  = config?.showTotal !== false && config?.showTotal !== 'false'
-  const colorTheme = config?.colorTheme   || 'Red'
+  const colorTheme = config?.colorTheme   || 'Swyft'
+  const themeMode  = config?.themeMode    || 'Auto'
   const firstDay   = config?.firstDay === 'Monday' ? 1 : 0
 
   const elementData = useElementData(sourceId)
@@ -132,33 +133,55 @@ export default function App() {
   const rootRef = useRef(null)
 
   const today = new Date()
-  const [viewYear,  setViewYear]  = useState(today.getFullYear())
-  const [viewMonth, setViewMonth] = useState(today.getMonth())
-  const [tooltip,   setTooltip]   = useState(null)
+  const [viewYear,    setViewYear]    = useState(today.getFullYear())
+  const [viewMonth,   setViewMonth]   = useState(today.getMonth())
+  const [tooltip,     setTooltip]     = useState(null)
+  const [filterText,  setFilterText]  = useState('')
+  const [selectedKey, setSelectedKey] = useState(null)
 
-  const theme     = THEMES[colorTheme] || THEMES.Red
+  // Resolve theme mode (Auto follows OS preference)
+  const [resolvedTheme, setResolvedTheme] = useState('light')
+  useEffect(() => {
+    if (themeMode === 'Light') { setResolvedTheme('light'); return }
+    if (themeMode === 'Dark')  { setResolvedTheme('dark');  return }
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const update = () => setResolvedTheme(mq.matches ? 'dark' : 'light')
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [themeMode])
+
+  const theme     = THEMES[colorTheme] || THEMES.Swyft
   const dowLabels = firstDay === 1 ? DOW_MON : DOW_SUN
 
-  // ── Aggregate data ────────────────────────────────────────────────────────
-  const { dayMap, detailMap } = useMemo(() => {
+  // ── Aggregate data (with optional row-level filter) ──────────────────────
+  const { dayMap, detailMap, matchedRows, totalRows } = useMemo(() => {
     const dayMap    = new Map()
     const detailMap = new Map()
-    if (!elementData || !dateCol || !valueCol) return { dayMap, detailMap }
+    if (!elementData || !dateCol || !valueCol) return { dayMap, detailMap, matchedRows: 0, totalRows: 0 }
 
     const dates      = elementData[dateCol]  ?? []
     const values     = elementData[valueCol] ?? []
     const detailSrc  = detailCol ? (elementData[detailCol] ?? []) : values
+    const filterSrc  = filterCol ? (elementData[filterCol] ?? []) : null
     const isCount    = aggMethod === 'Count'
     const isDistinct = aggMethod === 'Count Distinct'
 
-    // numGroups: date → number[]  (for Sum/Avg/Max/Min)
-    // rawGroups: date → string[]  (for Count/Count Distinct)
-    // detailGroups: date → string[]  (tooltip display)
+    const lowerFilter = filterText.trim().toLowerCase()
+    const filterActive = lowerFilter && filterSrc
+
     const numGroups    = new Map()
     const rawGroups    = new Map()
     const detailGroups = new Map()
 
+    let matched = 0
     for (let i = 0; i < dates.length; i++) {
+      if (filterActive) {
+        const fv = filterSrc[i]
+        if (fv == null || !String(fv).toLowerCase().includes(lowerFilter)) continue
+      }
+      matched++
+
       const key = parseDateKey(dates[i])
       if (!key) continue
 
@@ -192,7 +215,7 @@ export default function App() {
       let val
       if (isCount)    val = rawVals.length
       else if (isDistinct) val = new Set(rawVals).size
-      else if (!hasNumeric) val = rawVals.length  // non-numeric column fallback → count
+      else if (!hasNumeric) val = rawVals.length
       else {
         switch (aggMethod) {
           case 'Sum':     val = numVals.reduce((a,b) => a+b, 0); break
@@ -206,8 +229,8 @@ export default function App() {
     }
 
     for (const [key, vals] of detailGroups) detailMap.set(key, vals)
-    return { dayMap, detailMap }
-  }, [elementData, dateCol, valueCol, detailCol, aggMethod])
+    return { dayMap, detailMap, matchedRows: matched, totalRows: dates.length }
+  }, [elementData, dateCol, valueCol, detailCol, filterCol, filterText, aggMethod])
 
   const weeks = useMemo(() => buildMonthGrid(viewYear, viewMonth, firstDay), [viewYear, viewMonth, firstDay])
 
@@ -234,7 +257,7 @@ export default function App() {
   const handleDayClick = useCallback((cell) => {
     if (!cell.inMonth) return
     const key = cellKey(cell.date)
-    // Pass config VALUE (workbook variable name) directly — not the config key
+    setSelectedKey(prev => prev === key ? null : key)
     if (config?.selectedDate) plugin.config.setVariable(config.selectedDate, key)
     if (config?.onDayClick)   plugin.config.triggerAction(config.onDayClick)
   }, [config, plugin])
@@ -248,7 +271,6 @@ export default function App() {
     const cellRect = e.currentTarget.getBoundingClientRect()
     const rootRect = rootRef.current?.getBoundingClientRect() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
 
-    // All coords are relative to .hc-root so position:absolute stays inside it
     const cW = rootRect.width
     const cH = rootRect.height
     const cLeft  = cellRect.left  - rootRect.left
@@ -257,10 +279,8 @@ export default function App() {
 
     const tipW  = 220
     const shown = Math.min(details.length, 12)
-    // Estimate rendered height: base + list header + items + overflow line
     const tipH  = 82 + (shown > 0 ? 12 + shown * 19 + (details.length > 12 ? 20 : 0) : 0)
 
-    // Prefer right of cell; fall back to left; hard-clamp to container
     let x = cRight + 8 + tipW <= cW - 4 ? cRight + 8 : cLeft - tipW - 8
     x = Math.max(4, Math.min(x, cW - tipW - 4))
 
@@ -271,9 +291,10 @@ export default function App() {
   }, [dayMap, detailMap])
 
   const isConfigured = !!(sourceId && dateCol && valueCol)
+  const filterActive = !!filterCol && filterText.trim().length > 0
 
   return (
-    <div className="hc-root" ref={rootRef} onMouseLeave={() => setTooltip(null)}>
+    <div className="hc-root" ref={rootRef} data-theme={resolvedTheme} onMouseLeave={() => setTooltip(null)}>
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="hc-header">
         <div className="hc-title">{title}</div>
@@ -285,6 +306,28 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* ── Filter ─────────────────────────────────────────────────── */}
+      {filterCol && (
+        <div className="hc-filter">
+          <svg className="hc-filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            className="hc-filter-input"
+            placeholder={`Filter by ${filterCol}`}
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+          {filterText && (
+            <button className="hc-filter-clear" onClick={() => setFilterText('')} aria-label="Clear filter">×</button>
+          )}
+          {filterActive && (
+            <span className="hc-filter-count">{matchedRows.toLocaleString()} of {totalRows.toLocaleString()}</span>
+          )}
+        </div>
+      )}
 
       {/* ── Month nav ──────────────────────────────────────────────── */}
       <div className="hc-nav">
@@ -305,9 +348,9 @@ export default function App() {
               const key = cellKey(cell.date)
               const val = cell.inMonth ? dayMap.get(key) : null
 
-              let bg       = cell.inMonth ? '#fafafa' : '#f5f5f5'
-              let dateClr  = cell.inMonth ? '#9ca3af' : '#d1d5db'
-              let valClr   = '#111827'
+              let bg       = cell.inMonth ? 'var(--hc-bg-empty)' : 'var(--hc-bg-out)'
+              let dateClr  = cell.inMonth ? 'var(--hc-text-faint)' : 'var(--hc-text-ghost)'
+              let valClr   = 'var(--hc-text-strong)'
 
               if (cell.inMonth && val != null && val > 0 && monthMax > 0) {
                 const t = val / monthMax
@@ -317,10 +360,12 @@ export default function App() {
                 dateClr = dark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)'
               }
 
+              const isSelected = cell.inMonth && key === selectedKey
+
               return (
                 <div
                   key={di}
-                  className={`hc-cell${cell.inMonth ? ' hc-in' : ' hc-out'}`}
+                  className={`hc-cell${cell.inMonth ? ' hc-in' : ' hc-out'}${isSelected ? ' hc-selected' : ''}`}
                   style={{ backgroundColor: bg, cursor: cell.inMonth ? 'pointer' : 'default' }}
                   onClick={() => handleDayClick(cell)}
                   onMouseEnter={(e) => handleMouseEnter(cell, e)}
@@ -363,7 +408,7 @@ export default function App() {
       {/* ── Empty state overlay ─────────────────────────────────────── */}
       {!isConfigured && (
         <div className="hc-empty">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--hc-text-ghost)' }}>
             <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
             <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
           </svg>

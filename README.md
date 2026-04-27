@@ -23,11 +23,14 @@ This is ideal for visualizing:
 ## Features
 
 - **Heatmap coloring** — cell intensity scales linearly from the minimum to the maximum value in the current month
-- **6 color themes** — Red, Blue, Green, Purple, Orange, Teal
+- **7 color themes** — Swyft (default), Red, Blue, Green, Purple, Orange, Teal
+- **Light / Dark / Auto theme** — transparent background that adapts to the workbook's color scheme
+- **Raleway + Roboto typography** — Raleway for text, Roboto for numerics
 - **Monthly KPI header** — shows the aggregated total for the displayed month with a configurable label
-- **5 aggregation methods** — Sum, Count, Average, Max, Min
+- **6 aggregation methods** — Sum, Count, Count Distinct, Average, Max, Min
+- **In-plugin filter** — searchable text filter on any column, applied before aggregation
 - **Prev/Next month navigation**
-- **Click a day** — sets a Sigma workbook variable and fires an action trigger
+- **Click a day** — sets a Sigma workbook variable and fires an action trigger; selected day stays highlighted
 - **Configurable title, subtitle, and KPI label**
 - **First day of week** — Sunday or Monday
 
@@ -61,6 +64,8 @@ This is ideal for visualizing:
 | **Data Source** | The Sigma table or visualization containing your data |
 | **Date Column** | A date or datetime column to group events by day |
 | **Value Column** | A numeric column to aggregate per day |
+| **Tooltip Detail Column** | *(optional)* String column shown as a row list inside the hover tooltip |
+| **Filter Column** | *(optional)* String column the in-plugin search box filters against. Leave unset to hide the filter input. |
 
 ### Data Options
 
@@ -76,7 +81,8 @@ This is ideal for visualizing:
 | **Subtitle** | *(blank)* | Smaller text below the title (e.g. "by Day") |
 | **KPI Label** | *(same as title)* | Label next to the monthly total number |
 | **Show Monthly Total** | On | Shows the large aggregate KPI number for the current month |
-| **Color Theme** | Red | Heatmap color scale. Options: Red, Blue, Green, Purple, Orange, Teal |
+| **Color Theme** | Swyft | Heatmap color scale. Options: Swyft (`#261FF6`), Red, Blue, Green, Purple, Orange, Teal |
+| **Theme Mode** | Auto | Light, Dark, or Auto (follows the workbook viewer's OS color scheme). Element background is transparent so the workbook background shows through. |
 
 ### Calendar Options
 
@@ -93,11 +99,20 @@ This is ideal for visualizing:
 
 ---
 
-## Interactivity Pattern
+## Drill-through Pattern (clicking through to underlying data)
 
-1. Set **Selected Date Variable** to a workbook parameter (e.g. `clicked_date`)
-2. Set **On Day Click** to trigger an action — for example, filter a child table where `due_date = clicked_date`
-3. Clicking any day in the calendar now drills through to the detail table
+Sigma plugins don't have native drill-through — but the heatmap exposes the click event to Sigma's Action system, which gives you the same UX. End-to-end setup:
+
+1. **Create a workbook control variable** (e.g. text control named `clicked_date`).
+2. **Wire the plugin** in the editor panel:
+   - **Selected Date Variable** → `clicked_date`
+   - **On Day Click** → leave empty for now; you'll attach an Action next.
+3. **Build the drill target** — a table or modal-page containing the detail rows you want to surface, filtered where `date_column = [clicked_date]`.
+4. **Add an Action** to the plugin element:
+   - **When:** On click
+   - **Do:** Open a modal (or navigate, or filter) → point at the drill target you just built.
+   - Save. Sigma writes the action ID into the plugin's `On Day Click` field automatically.
+5. **Click any day** — the variable updates, the action fires, the detail view opens. The clicked cell stays outlined so users keep their place.
 
 ---
 

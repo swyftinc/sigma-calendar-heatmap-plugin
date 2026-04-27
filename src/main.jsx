@@ -6,10 +6,11 @@ import './index.css'
 
 client.config.configureEditorPanel([
   // ── Required ──────────────────────────────────────────────────────────────
-  { name: 'source',      type: 'element', label: 'Data Source' },
+  { name: 'source',       type: 'element', label: 'Data Source' },
   { name: 'dateColumn',   type: 'column', source: 'source', allowMultiple: false, label: 'Date Column' },
   { name: 'valueColumn',  type: 'column', source: 'source', allowMultiple: false, label: 'Value Column' },
   { name: 'detailColumn', type: 'column', source: 'source', allowMultiple: false, label: 'Tooltip Detail Column (shown on hover)' },
+  { name: 'filterColumn', type: 'column', source: 'source', allowMultiple: false, label: 'Filter Column (enables in-plugin search)' },
 
   // ── Data Options ──────────────────────────────────────────────────────────
   { name: 'dataOptions', type: 'group', label: 'Data Options' },
@@ -33,8 +34,16 @@ client.config.configureEditorPanel([
     type: 'dropdown',
     source: 'displayOptions',
     label: 'Color Theme',
-    values: ['Red', 'Blue', 'Green', 'Purple', 'Orange', 'Teal'],
-    defaultValue: 'Red',
+    values: ['Swyft', 'Red', 'Blue', 'Green', 'Purple', 'Orange', 'Teal'],
+    defaultValue: 'Swyft',
+  },
+  {
+    name: 'themeMode',
+    type: 'dropdown',
+    source: 'displayOptions',
+    label: 'Theme Mode',
+    values: ['Auto', 'Light', 'Dark'],
+    defaultValue: 'Auto',
   },
 
   // ── Calendar Options ──────────────────────────────────────────────────────
