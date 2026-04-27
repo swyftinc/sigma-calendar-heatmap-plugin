@@ -7,8 +7,9 @@ import './index.css'
 client.config.configureEditorPanel([
   // ── Required ──────────────────────────────────────────────────────────────
   { name: 'source',      type: 'element', label: 'Data Source' },
-  { name: 'dateColumn',  type: 'column',  source: 'source', allowMultiple: false, label: 'Date Column' },
-  { name: 'valueColumn', type: 'column',  source: 'source', allowMultiple: false, label: 'Value Column' },
+  { name: 'dateColumn',   type: 'column', source: 'source', allowMultiple: false, label: 'Date Column' },
+  { name: 'valueColumn',  type: 'column', source: 'source', allowMultiple: false, label: 'Value Column' },
+  { name: 'detailColumn', type: 'column', source: 'source', allowMultiple: false, label: 'Tooltip Detail Column (shown on hover)' },
 
   // ── Data Options ──────────────────────────────────────────────────────────
   { name: 'dataOptions', type: 'group', label: 'Data Options' },
@@ -17,7 +18,7 @@ client.config.configureEditorPanel([
     type: 'dropdown',
     source: 'dataOptions',
     label: 'Aggregation Method',
-    values: ['Sum', 'Count', 'Average', 'Max', 'Min'],
+    values: ['Sum', 'Count', 'Count Distinct', 'Average', 'Max', 'Min'],
     defaultValue: 'Sum',
   },
 
