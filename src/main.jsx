@@ -49,9 +49,8 @@ client.config.configureEditorPanel([
   },
 
   // ── Interactivity ─────────────────────────────────────────────────────────
-  { name: 'interactivity', type: 'group', label: 'Interactivity' },
-  { name: 'selectedDate', type: 'variable',       source: 'interactivity', label: 'Selected Date Variable' },
-  { name: 'onDayClick',   type: 'action-trigger', source: 'interactivity', label: 'On Day Click' },
+  { name: 'selectedDate', type: 'variable',       label: 'Selected Date Variable' },
+  { name: 'onDayClick',   type: 'action-trigger', label: 'On Day Click' },
 ])
 
 ReactDOM.createRoot(document.getElementById('root')).render(
