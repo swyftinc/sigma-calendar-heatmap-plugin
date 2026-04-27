@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef } from 'react'
-import { useConfig, useElementData, useVariable, useActionTrigger } from '@sigmacomputing/plugin'
+import { useConfig, useElementData, usePlugin } from '@sigmacomputing/plugin'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -127,9 +127,7 @@ export default function App() {
   const firstDay   = config?.firstDay === 'Monday' ? 1 : 0
 
   const elementData = useElementData(sourceId)
-
-  const [, setSelectedDate] = useVariable('selectedDate')
-  const triggerDayClick     = useActionTrigger('onDayClick')
+  const plugin      = usePlugin()
 
   const rootRef = useRef(null)
 
@@ -236,9 +234,10 @@ export default function App() {
   const handleDayClick = useCallback((cell) => {
     if (!cell.inMonth) return
     const key = cellKey(cell.date)
-    if (config?.selectedDate) setSelectedDate(key)
-    if (config?.onDayClick)   triggerDayClick()
-  }, [config, setSelectedDate, triggerDayClick])
+    // Pass config VALUE (workbook variable name) directly — not the config key
+    if (config?.selectedDate) plugin.config.setVariable(config.selectedDate, key)
+    if (config?.onDayClick)   plugin.config.triggerAction(config.onDayClick)
+  }, [config, plugin])
 
   const handleMouseEnter = useCallback((cell, e) => {
     if (!cell.inMonth) return
